@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>不许欺负奶蛙</title>
+<style>
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+    user-select: none;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+  }
+
+  /* ============ 整个"屏幕"，抖屏就抖这一层 ============ */
+  #screen {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  #screen.quake { animation: quake .45s linear; }
+  @keyframes quake {
+    0%,100% { transform: translate(0,0) rotate(0); }
+    10% { transform: translate(-8px, 4px) rotate(-.35deg); }
+    20% { transform: translate(7px, -5px) rotate(.3deg); }
+    30% { transform: translate(-6px, -3px) rotate(-.25deg); }
+    40% { transform: translate(6px, 5px) rotate(.3deg); }
+    50% { transform: translate(-5px, 2px) rotate(-.2deg); }
+    60% { transform: translate(4px, -3px) rotate(.2deg); }
+    70% { transform: translate(-3px, 3px) rotate(-.15deg); }
+    80% { transform: translate(3px, -2px) rotate(.12deg); }
+    90% { transform: translate(-2px, 1px) rotate(-.08deg); }
+  }
+
+  /* ============ 背景：一整张奶蛙图片 ============ */
+  #bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: url("sucai/OIP-C%20(3).webp") center center / cover no-repeat;
+    filter: brightness(.58) contrast(1.2) saturate(.85);
+    animation: bgDrift 22s ease-in-out infinite;
+  }
+  @keyframes bgDrift {
+    0%,100% { transform: scale(1.08) translate(0,0); }
+    50%     { transform: scale(1.16) translate(-1.5%, -1.5%); }
+  }
+
+  /* 压暗 + 血红晕影，中间留一点让奶蛙盯着你 */
+  #veil {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+      radial-gradient(ellipse 72% 62% at 50% 42%,
+        rgba(14,9,0,.42) 0%,
+        rgba(10,6,0,.72) 52%,
+        rgba(0,0,0,.94) 80%,
+        #000 100%),
+      linear-gradient(rgba(90,0,0,.30), rgba(0,0,0,.55));
+  }
+
+  /* CRT 扫描线 + 噪点 */
+  #scan {
+    position: absolute;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+    opacity: .5;
+    background: repeating-linear-gradient(
+      180deg,
+      rgba(0,0,0,.34) 0px, rgba(0,0,0,.34) 1px,
+      rgba(0,0,0,0)   1px, rgba(0,0,0,0)   3px);
+    animation: scanMove 8s linear infinite;
+  }
+  @keyframes scanMove { from { background-position-y: 0; } to { background-position-y: 120px; } }
+
+  #flicker {
+    position: absolute;
+    inset: 0;
+    z-index: 61;
+    pointer-events: none;
+    background: rgba(255,255,255,.045);
+    animation: flick 3.2s steps(2, end) infinite;
+  }
+  @keyframes flick {
+    0%, 92%, 100% { opacity: 0; }
+    93% { opacity: .8; }
+    95% { opacity: .1; }
+    97% { opacity: .6; }
+  }
+
+  /* 每次弹窗的红光爆闪 */
+  #flash {
+    position: absolute;
+    inset: 0;
+    z-index: 70;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(circle at 50% 50%,
+      rgba(255,40,40,.45) 0%, rgba(200,0,0,.18) 45%, rgba(255,0,0,0) 75%);
+  }
+  #flash.on { animation: flashAnim .38s ease-out; }
+  @keyframes flashAnim { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+  /* ============ 顶部病毒警告条 ============ */
+  #alertbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    background: linear-gradient(#8b0f12, #4a0406);
+    border-bottom: 2px solid #2a0000;
+    box-shadow: 0 6px 24px rgba(255,0,0,.35);
+    color: #ffe2e2;
+    font-size: 13px;
+    font-family: Consolas, "Courier New", monospace;
+    letter-spacing: .4px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  #alertbar b { color: #ffd000; }
+  .dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: #ff2d2d;
+    box-shadow: 0 0 10px #ff2d2d;
+    flex: none;
+    animation: blink 1s steps(2, end) infinite;
+  }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .15; } }
+
+  /* 右上角感染计数 */
+  #counter {
+    position: absolute;
+    top: 48px; right: 16px;
+    z-index: 40;
+    padding: 6px 12px;
+    background: rgba(20,0,0,.72);
+    border: 1px solid #7a0d10;
+    border-radius: 4px;
+    color: #ff9c9c;
+    font-size: 12.5px;
+    font-family: Consolas, "Courier New", monospace;
+  }
+  #counter b { color: #ffd000; font-size: 15px; }
+
+  /* ============ 中央内容 ============ */
+  main {
+    position: relative;
+    z-index: 20;
+    text-align: center;
+    padding: 0 20px;
+  }
+  h1 {
+    margin: 0 0 10px;
+    font-size: 40px;
+    letter-spacing: 4px;
+    color: #ffd000;
+    text-shadow:
+      0 0 12px rgba(255,208,0,.55),
+      0 0 34px rgba(255,60,0,.45),
+      0 3px 0 #4a1500,
+      0 6px 22px rgba(0,0,0,.95);
+    animation: titleGlow 2.4s ease-in-out infinite;
+  }
+  @keyframes titleGlow {
+    0%,100% { text-shadow: 0 0 12px rgba(255,208,0,.5), 0 0 34px rgba(255,60,0,.4), 0 3px 0 #4a1500, 0 6px 22px rgba(0,0,0,.95); }
+    50%     { text-shadow: 0 0 22px rgba(255,208,0,.85), 0 0 60px rgba(255,40,0,.7), 0 3px 0 #4a1500, 0 6px 22px rgba(0,0,0,.95); }
+  }
+
+  .hint {
+    margin: 0 0 34px;
+    font-size: 15px;
+    color: #cbb98a;
+    text-shadow: 0 2px 6px #000;
+  }
+
+  #bullyBtn {
+    padding: 18px 52px;
+    font-size: 22px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    color: #fff4f4;
+    background: linear-gradient(145deg, #e02424, #7d0a0e);
+    border: 2px solid #ff6b6b;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: Consolas, "Courier New", monospace;
+    box-shadow:
+      0 0 0 3px rgba(0,0,0,.6),
+      0 0 26px rgba(255,0,0,.55),
+      0 8px 0 #4d0507,
+      0 14px 30px rgba(0,0,0,.7);
+    transition: transform .08s, box-shadow .08s;
+    animation: btnPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes btnPulse {
+    0%,100% { box-shadow: 0 0 0 3px rgba(0,0,0,.6), 0 0 26px rgba(255,0,0,.5), 0 8px 0 #4d0507, 0 14px 30px rgba(0,0,0,.7); }
+    50%     { box-shadow: 0 0 0 3px rgba(0,0,0,.6), 0 0 48px rgba(255,0,0,.95), 0 8px 0 #4d0507, 0 14px 30px rgba(0,0,0,.7); }
+  }
+  #bullyBtn:active {
+    transform: translateY(6px);
+    box-shadow: 0 0 0 3px rgba(0,0,0,.6), 0 0 20px rgba(255,0,0,.6), 0 2px 0 #4d0507;
+  }
+
+  .sub {
+    margin: 26px 0 0;
+    font-size: 12.5px;
+    color: #8d2b2b;
+    font-family: Consolas, "Courier New", monospace;
+    letter-spacing: .5px;
+  }
+
+  /* ============ 左下角"病毒日志" ============ */
+  #log {
+    position: absolute;
+    left: 16px;
+    bottom: 56px;
+    z-index: 40;
+    width: 340px;
+    max-width: 60vw;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.65;
+    color: #7dff9b;
+    text-shadow: 0 0 8px rgba(0,255,90,.45);
+    pointer-events: none;
+  }
+  #log div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #log div.bad { color: #ff5a5a; text-shadow: 0 0 8px rgba(255,0,0,.5); }
+
+  /* ============ 假任务栏 ============ */
+  #taskbar {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    z-index: 40;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 14px;
+    background: linear-gradient(#2b2b2b, #101010);
+    border-top: 1px solid #3a3a3a;
+    color: #d8d8d8;
+    font-size: 12.5px;
+    font-family: Consolas, "Courier New", monospace;
+  }
+  #taskbar .start {
+    padding: 5px 14px;
+    border-radius: 4px;
+    background: linear-gradient(#c8161d, #7a0a0e);
+    border: 1px solid #ff6b6b;
+    font-weight: bold;
+    color: #fff;
+  }
+  .tb-warn {
+    color: #ffd000;
+    animation: tbWarn 1.2s steps(2, end) infinite;
+  }
+  @keyframes tbWarn { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  #clock { margin-left: auto; color: #9a9a9a; }
+
+  /* ============ 堆积的"奶蛙副本"窗口 ============ */
+  .ghost-win {
+    position: absolute;
+    z-index: 5;
+    width: 190px;
+    --rot: 0deg;
+    transform: rotate(var(--rot));
+    background: #ece8db;
+    border: 2px solid #1c1c1c;
+    border-radius: 4px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.75), 0 0 22px rgba(255,0,0,.3);
+    pointer-events: none;
+    overflow: hidden;
+    animation: ghostIn .3s ease-out;
+  }
+  @keyframes ghostIn {
+    from { opacity: 0; transform: rotate(var(--rot)) scale(.8); }
+    to   { opacity: 1; transform: rotate(var(--rot)) scale(1); }
+  }
+  .ghost-win .gt {
+    padding: 4px 7px;
+    background: linear-gradient(#8b0f12, #4a0406);
+    color: #ffdede;
+    font-size: 10.5px;
+    font-family: Consolas, "Courier New", monospace;
+  }
+  .ghost-win .gb {
+    padding: 9px;
+    font-size: 11px;
+    color: #7a1010;
+    font-family: Consolas, "Courier New", monospace;
+    text-align: center;
+  }
+  .ghost-win .gb img {
+    width: 46px; height: 46px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto 5px;
+    background: #fff;
+    border: 1px solid #b9b3a0;
+    padding: 2px;
+  }
+
+  /* ============ 弹窗遮罩 ============ */
+  #overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 55;
+    background: rgba(0,0,0,.62);
+    backdrop-filter: blur(2px);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #overlay.active { display: flex; }
+
+  /* ============ 弹窗本体：老式错误对话框 ============ */
+  #modal {
+    width: 100%;
+    max-width: 432px;
+    max-height: 94vh;
+    overflow-y: auto;
+    background: linear-gradient(#f8f5ec, #e6e1d1);
+    border: 2px solid #171717;
+    border-radius: 5px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,.15),
+      0 0 46px rgba(255,0,0,.5),
+      0 34px 90px rgba(0,0,0,.85);
+    animation: popIn .18s ease-out;
+  }
+  @keyframes popIn {
+    from { transform: scale(.82); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+  #modal.shake { animation: shake .42s; }
+  @keyframes shake {
+    0%,100% { transform: translate(0,0); }
+    15% { transform: translate(-10px, 3px); }
+    30% { transform: translate(9px, -4px); }
+    45% { transform: translate(-7px, -2px); }
+    60% { transform: translate(7px, 4px); }
+    75% { transform: translate(-4px, 2px); }
+    90% { transform: translate(3px, -2px); }
+  }
+
+  .titlebar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: linear-gradient(#a5121a, #4a0406);
+    border-bottom: 2px solid #1a0000;
+    color: #ffe9e9;
+    font-size: 13px;
+    font-weight: bold;
+    font-family: Consolas, "Courier New", monospace;
+    letter-spacing: .5px;
+  }
+  .titlebar .led {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #ff2d2d;
+    box-shadow: 0 0 9px #ff2d2d;
+    flex: none;
+    animation: blink .8s steps(2, end) infinite;
+  }
+  .titlebar .tb-x {
+    margin-left: auto;
+    width: 18px; height: 16px;
+    line-height: 15px;
+    text-align: center;
+    background: #d9d4c4;
+    border: 1px solid #4a4a4a;
+    color: #8b0f12;
+    font-size: 13px;
+    font-weight: bold;
+    border-radius: 2px;
+  }
+
+  .modal-body { padding: 18px 20px 14px; }
+
+  /* 照片框：白底素材图放进来正好像"证据照" */
+  .photo {
+    position: relative;
+    width: 168px;
+    margin: 0 auto 14px;
+    padding: 7px 7px 7px;
+    background: #fff;
+    border: 2px solid #b9b3a0;
+    border-radius: 3px;
+    box-shadow: 0 3px 12px rgba(0,0,0,.28), inset 0 0 0 1px #fff;
+  }
+  .photo img {
+    display: block;
+    width: 150px;
+    height: 150px;
+    object-fit: contain;
+    animation: bob 2.6s ease-in-out infinite;
+  }
+  @keyframes bob {
+    0%,100% { transform: translateY(0) rotate(-2deg); }
+    50%     { transform: translateY(-5px) rotate(2deg); }
+  }
+  .rec {
+    position: absolute;
+    top: 10px; left: 10px;
+    padding: 1px 6px;
+    background: rgba(0,0,0,.62);
+    color: #ff4d4d;
+    font-size: 10px;
+    font-family: Consolas, "Courier New", monospace;
+    letter-spacing: 1px;
+    border-radius: 2px;
+    animation: blink 1.1s steps(2, end) infinite;
+  }
+
+  #modalText {
+    margin: 0 0 14px;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+    line-height: 1.5;
+    color: #a5121a;
+    text-shadow: 0 1px 0 #fff;
+  }
+
+  .bar {
+    height: 15px;
+    background: #cdc7b4;
+    border: 1px solid #8a8570;
+    border-radius: 3px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,.35);
+  }
+  .bar i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: repeating-linear-gradient(90deg,
+      #c1121f 0px, #ff2d2d 8px, #c1121f 16px);
+    transition: width .1s linear;
+  }
+  .bar-label {
+    margin-top: 6px;
+    font-size: 11.5px;
+    color: #6b6350;
+    font-family: Consolas, "Courier New", monospace;
+    text-align: right;
+  }
+
+  .modal-foot {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding: 12px 20px 16px;
+    border-top: 1px solid #c9c3b0;
+    background: #ded9c8;
+  }
+  .modal-foot button {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 14.5px;
+    font-weight: bold;
+    padding: 9px 26px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform .07s, box-shadow .07s, background .15s;
+  }
+  #cancelBtn {
+    background: linear-gradient(#f2efe4, #d5cfbc);
+    border: 2px solid #8a8570;
+    color: #5b5545;
+    box-shadow: 0 3px 0 #a9a390;
+    position: relative;
+  }
+  #modalClose {
+    background: linear-gradient(145deg, #e02424, #8b0f12);
+    border: 2px solid #ff8a8a;
+    color: #fff;
+    box-shadow: 0 4px 0 #4d0507, 0 0 18px rgba(255,0,0,.5);
+  }
+  #modalClose:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 #4d0507;
+  }
+</style>
+</head>
+<body>
+
+<div id="screen">
+  <div id="bg"></div>
+  <div id="veil"></div>
+
+  <div id="alertbar">
+    <span class="dot"></span>
+    <span id="alertText">系统警告：检测到恶意程序 <b>NAIWA.exe</b> — 奶蛙正在感染您的电脑</span>
+  </div>
+
+  <div id="counter">已发现奶蛙：<b id="counterNum">0</b> 只</div>
+
+  <main>
+    <h1>奶蛙保护协会</h1>
+    <p class="hint">点击下面的按钮欺负奶蛙</p>
+    <button id="bullyBtn">欺负奶蛙</button>
+    <p class="sub">警告：此操作可能导致系统被奶蛙完全占领</p>
+  </main>
+
+  <div id="log"></div>
+
+  <div id="taskbar">
+    <span class="start">开始</span>
+    <span class="tb-warn">NAIWA.exe 未响应</span>
+    <span id="clock">--:--:--</span>
+  </div>
+
+  <div id="scan"></div>
+  <div id="flicker"></div>
+  <div id="flash"></div>
+
+  <div id="overlay">
+    <div id="modal">
+      <div class="titlebar">
+        <span class="led"></span>
+        <span id="modalTitle">系统警告</span>
+        <span class="tb-x">×</span>
+      </div>
+      <div class="modal-body">
+        <div class="photo">
+          <span class="rec">REC</span>
+          <img id="frogImg" src="sucai/OGC.gif" alt="奶蛙">
+        </div>
+        <p id="modalText"></p>
+        <div class="bar"><i id="barFill"></i></div>
+        <div class="bar-label" id="barLabel">扫描中… 0%</div>
+      </div>
+      <div class="modal-foot">
+        <button id="cancelBtn">取消</button>
+        <button id="modalClose">确定</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ================= 配置区 ================= */
+
+  // 弹窗文案（按顺序弹）
+  const messages = [
+    "不许欺负奶蛙！",
+    "奶蛙那么可爱，你为什么要欺负它？",
+    "再点一次试试？",
+    "说了不许欺负奶蛙！",
+    "奶蛙保护协会已介入调查！",
+    "你的良心不会痛吗？",
+    "停止！立刻停止欺负奶蛙！",
+    "奶蛙说：我报警了！",
+    "警察叔叔就是这个人！",
+    "最后警告：不许欺负奶蛙！",
+    "好吧……你赢了，但奶蛙依然不许被欺负！"
+  ];
+
+  // 每个弹窗对应的窗口标题
+  const titles = [
+    "系统警告 — NAIWA.exe",
+    "严重错误：无法删除奶蛙",
+    "安全中心 — 检测到威胁",
+    "错误 0x0000NAIWA",
+    "警告：您的电脑已被占领",
+    "NAIWA.exe 正在复制自身",
+    "系统即将崩溃 — 请勿关闭",
+    "奶蛙已报警 — 坐标上传中",
+    "身份已锁定：就是这个人",
+    "最后警告 — 立即停止操作",
+    "NAIWA.exe — 仍在运行"
+  ];
+
+  // 每条弹窗对应的奶蛙图片（来自 sucai 文件夹）
+  const frogImages = [
+    "sucai/OGC.gif",                 // 直视你
+    "sucai/6a02442a8e328vYg.gif",    // 侧身捂肚子
+    "sucai/OIP-C%20(3).webp",        // 斜眼瞟
+    "sucai/OIP-C.webp",              // 张大嘴
+    "sucai/OIP-C%20(2).webp",        // 抱抱
+    "sucai/6a0a220a895cduxL.gif",    // 海边的委屈脸
+    "sucai/OIP-C.webp",
+    "sucai/6a02442a1f6479fz.gif",    // 笑到打滚
+    "sucai/OIP-C%20(3).webp",
+    "sucai/6a02442a8e328vYg.gif",
+    "sucai/OIP-C%20(2).webp"
+  ];
+
+  // 左下角病毒日志，一行一条
+  const logs = [
+    "> naiwa.exe 已启动",
+    "> 复制奶蛙 -> C:\\Windows\\System32\\naiwa.dll",
+    "> 注入进程 explorer.exe ...... 成功",
+    "> 删除奶蛙失败：文件受系统保护",
+    "> 已连接：奶蛙保护协会 服务器",
+    "> 上传中：您的良心.zip ...... 失败",
+    "> 强制终止请求被拒绝",
+    "> 已向 110 发送本机坐标",
+    "> 目标身份确认完毕",
+    "> 倒计时 3 ...... 2 ...... 1",
+    "> 奶蛙仍然在您的电脑里"
+  ];
+
+  // 顶部滚动警告文案
+  const alerts = [
+    "系统警告：检测到恶意程序 <b>NAIWA.exe</b> — 奶蛙正在感染您的电脑",
+    "警告：<b>47</b> 个系统文件已被替换为奶蛙",
+    "警告：<b>C:\\Windows\\System32</b> 已被奶蛙占领",
+    "警告：无法卸载奶蛙 — 它看着您呢",
+    "警告：请勿关闭本页面，否则奶蛙会到您家"
+  ];
+
+  // 每条弹窗之间的间隔（毫秒）
+  const baseInterval = 700;
+
+  /* ================= 逻辑区 ================= */
+
+  const screenEl  = document.getElementById("screen");
+  const overlay   = document.getElementById("overlay");
+  const modal     = document.getElementById("modal");
+  const modalText = document.getElementById("modalText");
+  const modalTitle= document.getElementById("modalTitle");
+  const modalClose= document.getElementById("modalClose");
+  const cancelBtn = document.getElementById("cancelBtn");
+  const frogImg   = document.getElementById("frogImg");
+  const counterNum= document.getElementById("counterNum");
+  const barFill   = document.getElementById("barFill");
+  const barLabel  = document.getElementById("barLabel");
+  const flashEl   = document.getElementById("flash");
+  const logEl     = document.getElementById("log");
+  const alertText = document.getElementById("alertText");
+  const clockEl   = document.getElementById("clock");
+
+  let index = 0;        // 当前弹到第几条
+  let running = false;  // 是否正在弹窗流程中
+  let clickCount = 0;   // 总共点了多少次按钮
+  let barTimer = null;  // 进度条定时器
+  let ghostCount = 0;   // 已堆积的副本窗口数
+  let dodgeCount = 0;   // 取消按钮躲了几次
+
+  // 抖屏
+  function quake() {
+    screenEl.classList.remove("quake");
+    void screenEl.offsetWidth;
+    screenEl.classList.add("quake");
+  }
+
+  // 红光爆闪
+  function flash() {
+    flashEl.classList.remove("on");
+    void flashEl.offsetWidth;
+    flashEl.classList.add("on");
+  }
+
+  // 进度条：从 0 涨到 target
+  function runBar(target) {
+    clearInterval(barTimer);
+    let v = 0;
+    barFill.style.width = "0%";
+    barLabel.textContent = "扫描中… 0%";
+    barTimer = setInterval(() => {
+      v += Math.random() * 8 + 3;
+      if (v >= target) { v = target; clearInterval(barTimer); }
+      barFill.style.width = v + "%";
+      barLabel.textContent = (v >= target)
+        ? "感染完成 " + Math.round(target) + "%"
+        : "扫描中… " + Math.floor(v) + "%";
+    }, 70);
+  }
+
+  // 往左下角日志里加一行
+  function pushLog(text, bad) {
+    const line = document.createElement("div");
+    if (bad) line.className = "bad";
+    line.textContent = text;
+    logEl.appendChild(line);
+    while (logEl.children.length > 6) logEl.removeChild(logEl.firstChild);
+  }
+
+  // 在背景堆一个"奶蛙副本"小窗口
+  function spawnGhost() {
+    if (ghostCount >= 9) return;
+    ghostCount++;
+    const w = document.createElement("div");
+    w.className = "ghost-win";
+    w.style.left = (4 + Math.random() * 74) + "%";
+    w.style.top  = (10 + Math.random() * 62) + "%";
+    w.style.setProperty("--rot", (Math.random() * 8 - 4).toFixed(1) + "deg");
+    w.innerHTML =
+      '<div class="gt">奶蛙副本 #' + String(ghostCount).padStart(2, "0") + '</div>' +
+      '<div class="gb"><img src="' + frogImages[ghostCount % frogImages.length] + '" alt="">运行中…</div>';
+    screenEl.appendChild(w);
+  }
+
+  function clearGhosts() {
+    screenEl.querySelectorAll(".ghost-win").forEach(el => el.remove());
+    ghostCount = 0;
+  }
+
+  // 打开弹窗
+  function showModal(i) {
+    modalText.textContent = messages[i];
+    modalTitle.textContent = titles[i] || "系统警告";
+    const src = frogImages[i] || frogImages[0];
+    if (frogImg.getAttribute("src") !== src) frogImg.setAttribute("src", src);
+
+    // 取消按钮回到原位，重新开始躲
+    dodgeCount = 0;
+    cancelBtn.style.transform = "translate(0,0)";
+
+    runBar(88 + Math.random() * 12);
+
+    overlay.classList.add("active");
+    modal.classList.remove("shake");
+    void modal.offsetWidth;   // 强制重绘
+    modal.classList.add("shake");
+
+    quake();
+    flash();
+  }
+
+  // 关闭弹窗
+  function hideModal() {
+    overlay.classList.remove("active");
+    clearInterval(barTimer);
+  }
+
+  // 点「欺负奶蛙」
+  document.getElementById("bullyBtn").addEventListener("click", () => {
+    if (running) return;
+    running = true;
+    index = 0;
+    clickCount++;
+    counterNum.textContent = clickCount;
+    clearGhosts();
+    logEl.innerHTML = "";
+    pushLog("> 检测到用户点击「欺负奶蛙」", true);
+    showModal(index);
+  });
+
+  // 点「确定」
+  modalClose.addEventListener("click", () => {
+    hideModal();
+    pushLog(logs[index] || "> ……", index >= 3);
+    spawnGhost();
+    index++;
+
+    if (index < messages.length) {
+      // 越往后越快
+      const speed = Math.max(180, baseInterval - index * 55);
+      setTimeout(() => showModal(index), speed);
+    } else {
+      running = false;
+      index = 0;
+      pushLog("> 奶蛙放弃抵抗，但它还在看着您", true);
+    }
+  });
+
+  // 「取消」按钮会躲开鼠标（经典病毒弹窗）
+  cancelBtn.addEventListener("mouseenter", () => {
+    if (dodgeCount >= 7) return;
+    dodgeCount++;
+    const dx = Math.random() * 150 - 75;
+    const dy = Math.random() * 70 - 35;
+    cancelBtn.style.transform = "translate(" + dx.toFixed(0) + "px," + dy.toFixed(0) + "px)";
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    modalText.textContent = "取消失败：该窗口已被奶蛙锁定。";
+    modalTitle.textContent = "错误 — 取消操作被拒绝";
+    pushLog("> 取消请求被拒绝：原因「奶蛙」", true);
+    flash();
+  });
+
+  // 顶部警告条轮播
+  let alertIdx = 0;
+  setInterval(() => {
+    alertIdx = (alertIdx + 1) % alerts.length;
+    alertText.innerHTML = alerts[alertIdx];
+  }, 3400);
+
+  // 任务栏时钟
+  function tickClock() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, "0");
+    clockEl.textContent = p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  // 标签页标题闪烁，切到别的页面也吓人
+  const pageTitles = ["不许欺负奶蛙", "系统警告", "奶蛙正在看着您", "NAIWA.exe"];
+  let ptIdx = 0;
+  setInterval(() => {
+    ptIdx = (ptIdx + 1) % pageTitles.length;
+    document.title = pageTitles[ptIdx];
+  }, 1600);
+</script>
+
+</body>
+</html>
